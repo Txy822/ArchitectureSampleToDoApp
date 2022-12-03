@@ -67,6 +67,9 @@ class TasksViewModel @Inject constructor(
     private val _filterUiInfo = _savedFilterType.map { getFilterUiInfo(it) }.distinctUntilChanged()
     private val _userMessage: MutableStateFlow<Int?> = MutableStateFlow(null)
     private val _isLoading = MutableStateFlow(false)
+
+    val _searchTasks:MutableStateFlow<Async<List<Task>>> = MutableStateFlow(Async.Loading)
+
     private val _filteredTasksAsync =
         combine(tasksRepository.getTasksStream(), _savedFilterType) { tasks, type ->
             filterTasks(tasks, type)
