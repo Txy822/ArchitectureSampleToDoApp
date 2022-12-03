@@ -32,13 +32,7 @@ import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType
 import com.example.android.architecture.blueprints.todoapp.util.Async
 import com.example.android.architecture.blueprints.todoapp.util.WhileUiSubscribed
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -68,7 +62,7 @@ class TasksViewModel @Inject constructor(
     private val _userMessage: MutableStateFlow<Int?> = MutableStateFlow(null)
     private val _isLoading = MutableStateFlow(false)
 
-    val _searchTasks:MutableStateFlow<Async<List<Task>>> = MutableStateFlow(Async.Loading)
+    val _searchTasks: MutableStateFlow<Async<List<Task>>> = MutableStateFlow(Async.Loading)
 
     private val _filteredTasksAsync =
         combine(tasksRepository.getTasksStream(), _savedFilterType) { tasks, type ->
@@ -194,6 +188,31 @@ class TasksViewModel @Inject constructor(
                 )
             }
         }
+
+    /**
+    need modification, filter type is nof functioning properly
+     */
+    fun searchTasks(query: String) {
+        viewModelScope.launch {
+            tasksRepository.getTasksStream().collectLatest { result ->
+                if (result is Success && result.data.isNotEmpty()) {
+                    val allTaskList = result.data
+                    val completedTaskList = result.data.filter { it.isCompleted }
+                    val activeTaskList = result.data.filter { it.isActive }
+                    if (completedTaskList.isNotEmpty() && _savedFilterType.value==COMPLETED_TASKS) {
+                        _searchTasks.value = Async.Success(completedTaskList.filter {it.title.contains(query) })
+                    }
+                    if (activeTaskList.isNotEmpty() && _savedFilterType.value==ACTIVE_TASKS) {
+                        _searchTasks.value = Async.Success(activeTaskList.filter {it.title.contains(query)})
+
+                    }
+                    if(allTaskList.isNotEmpty() && _savedFilterType.value==ALL_TASKS) {
+                        _searchTasks.value = Async.Success(allTaskList.filter { it.title.contains(query) })
+                    }
+                }
+            }
+        }
+    }
 }
 
 // Used to save the current filtering in SavedStateHandle.

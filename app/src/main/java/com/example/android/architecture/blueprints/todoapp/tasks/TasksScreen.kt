@@ -19,16 +19,16 @@ package com.example.android.architecture.blueprints.todoapp.tasks
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Checkbox
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
@@ -40,15 +40,17 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.rememberScaffoldState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,6 +62,7 @@ import com.example.android.architecture.blueprints.todoapp.data.Task
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.ACTIVE_TASKS
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.ALL_TASKS
 import com.example.android.architecture.blueprints.todoapp.tasks.TasksFilterType.COMPLETED_TASKS
+import com.example.android.architecture.blueprints.todoapp.util.Async
 import com.example.android.architecture.blueprints.todoapp.util.LoadingContent
 import com.example.android.architecture.blueprints.todoapp.util.TasksTopAppBar
 import com.google.accompanist.appcompattheme.AppCompatTheme
@@ -131,6 +134,7 @@ fun TasksScreen(
 
 @Composable
 private fun TasksContent(
+    viewModel: TasksViewModel = hiltViewModel(),
     loading: Boolean,
     tasks: List<Task>,
     @StringRes currentFilteringLabel: Int,
@@ -141,6 +145,8 @@ private fun TasksContent(
     onTaskCheckedChange: (Task, Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val searchTask by viewModel._searchTasks.collectAsState(initial = Async.Loading)
+
     LoadingContent(
         loading = loading,
         empty = tasks.isEmpty() && !loading,
@@ -160,16 +166,74 @@ private fun TasksContent(
                 ),
                 style = MaterialTheme.typography.h6
             )
+            SearchBar(hint = "Search..", modifier = Modifier.fillMaxWidth()){
+                viewModel.searchTasks(it)
+            }
             LazyColumn {
-                items(tasks) { task ->
-                    TaskItem(
-                        task = task,
-                        onTaskClick = onTaskClick,
-                        onCheckedChange = { onTaskCheckedChange(task, it) }
-                    )
+                if(searchTask is Async.Success){
+                    items((searchTask as Async.Success<List<Task>>).data){ task ->
+                        TaskItem(
+                            task = task,
+                            onTaskClick = onTaskClick,
+                            onCheckedChange = { onTaskCheckedChange(task, it) }
+                        )
+                    }
+                }
+                else{
+                    items(tasks) { task ->
+                        TaskItem(
+                            task = task,
+                            onTaskClick = onTaskClick,
+                            onCheckedChange = { onTaskCheckedChange(task, it) }
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SearchBar(
+    modifier: Modifier = Modifier,
+    hint: String = "",
+    onSearch: (String) -> Unit = {}
+) {
+    var text by remember {
+        mutableStateOf("")
+    }
+    var isHintDisplayed by remember {
+        mutableStateOf(hint != "")
+    }
+    Box(modifier = modifier) {
+        BasicTextField(
+            value = text, onValueChange = {
+                text = it
+                onSearch(it)
+            },
+            maxLines = 1,
+            singleLine = true,
+            textStyle = TextStyle(color = Color.Black),
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(10.dp, CircleShape)
+                .background(Color.White, CircleShape)
+                .border(1.dp, Color.LightGray, CircleShape)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .onFocusChanged { isHintDisplayed = !it.isFocused },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = {
+                onSearch(text)
+            })
+        )
+        if (isHintDisplayed) {
+            Text(
+                text = hint,
+                color = Color.Black,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+            )
+        }
+
     }
 }
 
